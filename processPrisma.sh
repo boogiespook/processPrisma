@@ -13,6 +13,9 @@
 ##
 ## This script is NOT officially supported by Red Hat. 
 ##
+## The input CSV file should have the following standard column headers:
+##  Registry,Repository,Tag,Id,Distro,Hosts,Layer,CVE ID,Compliance ID,Type,Severity,Packages,Source Package,Package Version,Package License,CVSS,Fix Status,Fix Date,Grace Days,Risk Factors,Vulnerability Tags,Description,Cause,Containers,Custom Labels,Published,Discovered,Binaries,Clusters,Namespaces,Collections,Digest,Vulnerability Link,Apps,Package Path,Start Time,Defender Hosts,Agentless Hosts
+##
 ##########################################################################################
 
 lines_in_file () {
@@ -75,13 +78,12 @@ echo -n "$totalLines, "
    echo "$severity,$link,$line" >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity
    ((totalLines=totalLines-1))
 done < ${basefile}_dedupe_cluster_cves_crit_high 
-sort ${basefile}_dedupe_cluster_cves_crit_high_rh_severity >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity.csv
+sort ${basefile}_dedupe_cluster_cves_crit_high_rh_severity >> ${basefile}_output.csv
 echo
 echo " - $cvesFound in the Red Hat database"
 echo " Red Hat Severity Levels:"
-echo
-awk -vFPAT='[^,]*|"[^"]*"' '{print $1}' ${basefile}_dedupe_cluster_cves_crit_high_rh_severity | sort | uniq -c | sort
-echo "Output file: ${basefile}_dedupe_cluster_cves_crit_high_rh_severity.csv"
+awk -vFPAT='[^,]*|"[^"]*"' '{print $1}' ${basefile}_output.csv | sort | uniq -c | sort -nr
+echo "Output file: ${basefile}_output.csv"
 echo
 
 
