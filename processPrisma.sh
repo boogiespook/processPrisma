@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/bash 
 ##########################################################################################
 ##
 ##  processPrisma
@@ -35,6 +35,7 @@ apply_filter () {
 if=$1
 cluster=$2
 basefile=${if%.*}
+tempFiles=""
 echo
 echo "Processing infile $if for cluster $cluster"
 headers=$(head -1 $if)
@@ -70,12 +71,14 @@ newHeaders="Red Hat Severity,CVE Link,Affected,$headers"
 cvesFound=0
 totalLines=$(wc -l ${basefile}_dedupe_cluster_cves_crit_high | awk '{print $1}')
 allCVEs=$(wc -l ${basefile}_dedupe_cluster_cves_crit_high | awk '{print $1}')
+affectedTotal=0
 echo "Checking $totalLines CVEs in the Red Hat CVE Database"
 echo $newHeaders > ${basefile}_output.csv
 while read line
 do 
    cve=$(echo $line | awk -v col=$cveCol -vFPAT='[^,]*|"[^"]*"' '{print $col}')
    affected=""
+   newSeverity=""
    severity=$(curl -s https://access.redhat.com/hydra/rest/securitydata/cve/${cve}.json | jq '.threat_severity' 2> /dev/null | tr -d '"')
    if [ -z "$severity" ]
     then
@@ -91,12 +94,25 @@ do
       repoCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Repository/) print i } }' ${basefile}_headers)
       reponame=$(echo $line | awk -v col=$repoCol -vFPAT='[^,]*|"[^"]*"' '{print $col}')      
       affected=$(curl -s https://access.redhat.com/hydra/rest/securitydata/cve/${cve}.json | jq '.package_state' | grep -B1 $reponame | awk -F":" '/fix_state/ {print $2}' | tr -d '",')
-      printf "\t $affected \n"
+      if [ -n "$affected" ]
+      then
+      printf "\t $affected"
+         ## Check if there is an updated severity levelfor the specific repo
+         newSeverity=$(curl -s https://access.redhat.com/hydra/rest/securitydata/cve/${cve}.json | jq '.package_state' | grep -A3 $reponame | awk -F":" '/impact/ {print $2}' | tr -d '", ')
+         if [[ $newSeverity != "" ]]
+         then
+            severity=${newSeverity^}
+            printf "\t (Severity changed to $severity)"
+         fi
+      fi
+      printf "\n"
    fi
-   echo "$severity,$link,$affected,$line" >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity
+   echo "${severity^},$link,$affected,$line" >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity
    ((totalLines=totalLines-1))
 done < ${basefile}_dedupe_cluster_cves_crit_high 
 sort ${basefile}_dedupe_cluster_cves_crit_high_rh_severity >> ${basefile}_output.csv
+## Tidy up all the temporary files
+rm ${basefile}_dedupe* ${basefile}_headers
 echo
 echo " - $cvesFound out of $allCVEs CVEs found in the Red Hat database"
 echo " Red Hat Severity Levels:"
