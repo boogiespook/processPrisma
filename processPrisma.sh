@@ -116,7 +116,7 @@ rm ${basefile}_dedupe* ${basefile}_headers
 echo
 echo " - $cvesFound out of $allCVEs CVEs found in the Red Hat database"
 echo " Red Hat Severity Levels:"
-awk -vFPAT='[^,]*|"[^"]*"' '{print $1}' ${basefile}_output.csv | sort | uniq -c | sort -nr
+awk -vFPAT='[^,]*|"[^"]*"' '{print $1}' ${basefile}_output.csv | grep -v "Red Hat Severity" | sort | uniq -c | sort -nr
 echo "Output file: ${basefile}_output.csv"
 echo
 
