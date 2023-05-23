@@ -61,7 +61,7 @@ severityCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Severity/) print i 
 apply_filter ${basefile}_dedupe_cluster_cves "critical|high" "$severityCol" "crit_high"
 
 ## Add RH Severity to the headers
-newHeaders="Red Hat Severity,CVE Link,$headers"
+newHeaders="Red Hat Severity,CVE Link,Affected,$headers"
 
 ## Run through all the CVE and look for entries in the Red Hat DB
 # Create empty files so we don't append
@@ -71,10 +71,11 @@ cvesFound=0
 totalLines=$(wc -l ${basefile}_dedupe_cluster_cves_crit_high | awk '{print $1}')
 allCVEs=$(wc -l ${basefile}_dedupe_cluster_cves_crit_high | awk '{print $1}')
 echo "Checking $totalLines CVEs in the Red Hat CVE Database"
-echo $newHeaders > ${basefile}_dedupe_cluster_cves_crit_high_rh_severity.csv 
+echo $newHeaders > ${basefile}_output.csv
 while read line
 do 
-   cve=$(echo $line | awk -vFPAT='[^,]*|"[^"]*"' '{print $8}')
+   cve=$(echo $line | awk -v col=$cveCol -vFPAT='[^,]*|"[^"]*"' '{print $col}')
+   affected=""
    severity=$(curl -s https://access.redhat.com/hydra/rest/securitydata/cve/${cve}.json | jq '.threat_severity' 2> /dev/null | tr -d '"')
    if [ -z "$severity" ]
     then
@@ -85,9 +86,14 @@ do
       ((cvesFound=cvesFound+1))
       lcCve=$(echo $cve | tr '[A-Z]' '[a-z]')
       link="https://access.redhat.com/security/cve/$lcCve"
-      printf "${cve}\t\t [\33[01;32m Found \033[0m]\n"
+      printf "${cve}\t\t [\33[01;32m Found \033[0m] "
+      ## Get Affected state based on the repository name
+      repoCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Repository/) print i } }' ${basefile}_headers)
+      reponame=$(echo $line | awk -v col=$repoCol -vFPAT='[^,]*|"[^"]*"' '{print $col}')      
+      affected=$(curl -s https://access.redhat.com/hydra/rest/securitydata/cve/${cve}.json | jq '.package_state' | grep -B1 $reponame | awk -F":" '/fix_state/ {print $2}' | tr -d '",')
+      printf "\t $affected \n"
    fi
-   echo "$severity,$link,$line" >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity
+   echo "$severity,$link,$affected,$line" >> ${basefile}_dedupe_cluster_cves_crit_high_rh_severity
    ((totalLines=totalLines-1))
 done < ${basefile}_dedupe_cluster_cves_crit_high 
 sort ${basefile}_dedupe_cluster_cves_crit_high_rh_severity >> ${basefile}_output.csv
