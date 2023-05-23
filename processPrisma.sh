@@ -35,12 +35,10 @@ apply_filter () {
 if=$1
 cluster=$2
 basefile=${if%.*}
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-CLEAR='\033[0m'
 echo
 echo "Processing infile $if for cluster $cluster"
 headers=$(head -1 $if)
+head -1 $if > ${basefile}_headers
 echo " - Lines in total: $(wc -l ${if}| awk '{print $1}')"
 
 ## De-duplicate CVEs
@@ -48,13 +46,19 @@ awk -vFPAT='[^,]*|"[^"]*"' '!_[$8]++' $if > ${basefile}_dedupe
 lines_in_file ${basefile}_dedupe "de-duplicate"
 
 ## Filter by cluster
-apply_filter ${basefile}_dedupe $cluster 29 "cluster"
+# Find the Cluster column
+clusterCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Clusters/) print i } }' ${basefile}_headers)
+apply_filter ${basefile}_dedupe $cluster "$clusterCol" "cluster"
 
 ## Filter where CVE id ="CVE-"
-apply_filter ${basefile}_dedupe_cluster "CVE-" "8" "cves"
+# Find the CVE ID column
+cveCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /CVE ID/) print i } }' ${basefile}_headers)
+apply_filter ${basefile}_dedupe_cluster "^CVE-" "$cveCol" "cves"
 
 ## Get critical or high severity
-apply_filter ${basefile}_dedupe_cluster_cves "critical|high" "11" "crit_high"
+# Find the Severity column
+severityCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Severity/) print i } }' ${basefile}_headers)
+apply_filter ${basefile}_dedupe_cluster_cves "critical|high" "$severityCol" "crit_high"
 
 ## Add RH Severity to the headers
 newHeaders="Red Hat Severity,CVE Link,$headers"
