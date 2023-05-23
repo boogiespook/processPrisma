@@ -84,12 +84,12 @@ do
     then
       link="Not Found"
       severity="Not Found"
-      printf "${cve}\t\t [\33[01;31m Not Found \033[0m]\n"
+      printf "${cve}\t\t \33[01;31m Not Found \033[0m\n"
     else
       ((cvesFound=cvesFound+1))
       lcCve=$(echo $cve | tr '[A-Z]' '[a-z]')
       link="https://access.redhat.com/security/cve/$lcCve"
-      printf "${cve}\t\t [\33[01;32m Found \033[0m] "
+      printf "${cve}\t\t \33[01;32m Found \033[0m \t $severity "
       ## Get Affected state based on the repository name
       repoCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Repository/) print i } }' ${basefile}_headers)
       reponame=$(echo $line | awk -v col=$repoCol -vFPAT='[^,]*|"[^"]*"' '{print $col}')      
@@ -102,7 +102,7 @@ do
          if [[ $newSeverity != "" ]]
          then
             severity=${newSeverity^}
-            printf "\t (Severity changed to $severity)"
+            printf "\t \033[1;33m(Severity changed to $severity)\033[0m"
          fi
       fi
       printf "\n"
