@@ -46,10 +46,18 @@ echo " - Lines in total: $(wc -l ${if}| awk '{print $1}')"
 awk -vFPAT='[^,]*|"[^"]*"' '!_[$8]++' $if > ${basefile}_dedupe
 lines_in_file ${basefile}_dedupe "de-duplicate"
 
-## Filter by cluster
-# Find the Cluster column
-clusterCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Clusters/) print i } }' ${basefile}_headers)
-apply_filter ${basefile}_dedupe $cluster "$clusterCol" "cluster"
+## If a cluster has been provided, only select entries from that cluster
+if [ "$#" -eq "1" ]
+  then
+    echo " - No specific cluster specified. Using all clusters"
+    cp ${basefile}_dedupe ${basefile}_dedupe_cluster
+  else
+   ## Filter by cluster
+   # Find the Cluster column
+   clusterCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /Clusters/) print i } }' ${basefile}_headers)
+   apply_filter ${basefile}_dedupe $cluster "$clusterCol" "cluster"
+fi
+
 
 ## Filter where CVE id ="CVE-"
 # Find the CVE ID column
