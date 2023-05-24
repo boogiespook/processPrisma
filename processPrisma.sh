@@ -43,7 +43,8 @@ head -1 $if > ${basefile}_headers
 echo " - Lines in total: $(wc -l ${if}| awk '{print $1}')"
 
 ## De-duplicate CVEs
-awk -vFPAT='[^,]*|"[^"]*"' '!_[$8]++' $if > ${basefile}_dedupe
+cveCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /CVE ID/) print i } }' ${basefile}_headers)
+awk -vFPAT='[^,]*|"[^"]*"' -vcol=$cveCol '!_[$col]++' $if > ${basefile}_dedupe
 lines_in_file ${basefile}_dedupe "de-duplicate"
 
 ## If a cluster has been provided, only select entries from that cluster
@@ -61,7 +62,7 @@ fi
 
 ## Filter where CVE id ="CVE-"
 # Find the CVE ID column
-cveCol=$(awk -F"," '{ for (i=1; i<=NF; ++i) { if ($i ~ /CVE ID/) print i } }' ${basefile}_headers)
+
 apply_filter ${basefile}_dedupe_cluster "^CVE-" "$cveCol" "cves"
 
 ## Get critical or high severity
